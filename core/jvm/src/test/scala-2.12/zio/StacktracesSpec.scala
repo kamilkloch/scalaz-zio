@@ -332,7 +332,7 @@ class StacktracesSpec(implicit ee: org.specs2.concurrent.ExecutionEnv)
         case 0 =>
           UIO(throw new Exception("oops!"))
         case _ =>
-          ZIO.suspend(recursiveFork(i - 1)).fork.flatMap(_.join)
+          ZIO.effectSuspendTotal(recursiveFork(i - 1)).fork.flatMap(_.join)
       }
   }
 
@@ -469,7 +469,7 @@ class StacktracesSpec(implicit ee: org.specs2.concurrent.ExecutionEnv)
 
   object singleEffectTotalWithForCompFixture {
     def asyncDbCall(): Task[Unit] =
-      UIO.suspendWith(_ => throw new Exception)
+      UIO.effectSuspendTotalWith(_ => throw new Exception)
 
     val selectHumans: Task[Unit] = for {
       _ <- asyncDbCall()

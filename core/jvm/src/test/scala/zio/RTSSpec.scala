@@ -22,7 +22,9 @@ class RTSSpec(implicit ee: ExecutionEnv) extends TestRuntime {
     blocking caches threads                 $testBlockingThreadCaching
     point must be lazy                      $testPointIsLazy
     now must be eager                       $testNowIsEager
-    suspend must be lazy                    $testSuspendIsLazy
+    effectSuspend must be lazy              $testSuspendIsLazy
+    effectSuspend must catch throwable      $testSuspendCatchThrowable
+    effectSuspendWith must catch throwable  $testSuspendWithCatchThrowable
     suspend must be evaluatable             $testSuspendIsEvaluatable
     point, bind, map                        $testSyncEvalLoop
     effect, bind, map                       $testSyncEvalLoopEffect
@@ -199,10 +201,20 @@ class RTSSpec(implicit ee: ExecutionEnv) extends TestRuntime {
     IO.succeed(throw new Error("Eager")) must (throwA[Error])
 
   def testSuspendIsLazy =
-    IO.suspend(throw new Error("Eager")) must not(throwA[Throwable])
+    IO.effectSuspend(throw new Error("Eager")) must not(throwA[Throwable])
+
+  def testSuspendCatchThrowable = {
+    val TestError = new Error("TestError")
+    unsafeRun(ZIO.effectSuspend[Any, Nothing](throw TestError).either) must_=== Left(TestError)
+  }
+
+  def testSuspendWithCatchThrowable = {
+    val TestError = new Error("TestError")
+    unsafeRun(ZIO.effectSuspendWith[Any, Nothing](_ => throw TestError).either) must_=== Left(TestError)
+  }
 
   def testSuspendIsEvaluatable =
-    unsafeRun(IO.suspend(IO.succeedLazy[Int](42))) must_=== 42
+    unsafeRun(IO.effectSuspend(IO.succeedLazy[Int](42))) must_=== 42
 
   def testSyncEvalLoop = {
     def fibIo(n: Int): Task[BigInt] =
@@ -286,7 +298,7 @@ class RTSSpec(implicit ee: ExecutionEnv) extends TestRuntime {
 
   def testEvalOfAttemptOfFail = Seq(
     unsafeRun(TaskExampleError.either) must_=== Left(ExampleError),
-    unsafeRun(IO.suspend(IO.suspend(TaskExampleError).either)) must_=== Left(
+    unsafeRun(IO.effectSuspend(IO.effectSuspend(TaskExampleError).either)) must_=== Left(
       ExampleError
     )
   )
