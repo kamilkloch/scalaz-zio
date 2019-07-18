@@ -366,16 +366,20 @@ object UIO {
     ZIO.superviseStatus(status)(uio)
 
   /**
-   * @see See [[zio.ZIO.suspend]]
+   * @see See [[zio.ZIO.effectSuspendTotal]]
    */
-  final def suspend[A](uio: => UIO[A]): UIO[A] =
-    ZIO.suspend(uio)
+  final def effectSuspendTotal[A](uio: => UIO[A]): UIO[A] = new ZIO.EffectSuspendTotalWith(_ => uio)
 
   /**
-   * [[zio.ZIO.suspendWith]]
+   * @see See [[zio.ZIO.effectSuspendTotalWith]]
    */
-  final def suspendWith[A](io: Platform => UIO[A]): UIO[A] =
-    new ZIO.SuspendWith(io)
+  final def effectSuspendTotalWith[A](p: Platform => UIO[A]): UIO[A] = new ZIO.EffectSuspendTotalWith(p)
+
+  @deprecated("use effectSuspendTotal", "1.0.0")
+  final def suspend[A](uio: => UIO[A]): UIO[A] = effectSuspendTotalWith(_ => uio)
+
+  @deprecated("use effectSuspendTotalWith", "1.0.0")
+  final def suspendWith[A](p: Platform => UIO[A]): UIO[A] = effectSuspendTotalWith(p)
 
   /**
    * @see See [[zio.ZIO.trace]]

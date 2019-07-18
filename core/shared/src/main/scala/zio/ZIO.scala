@@ -2039,7 +2039,7 @@ private[zio] trait ZIOFunctions extends Serializable {
   final def runtime[R]: ZIO[R, Nothing, Runtime[R]] =
     for {
       environment <- environment[R]
-      platform    <- suspendTotalWith(ZIO.succeed)
+      platform    <- effectSuspendTotalWith(ZIO.succeed)
     } yield Runtime(environment, platform)
 
   /**
@@ -2100,13 +2100,14 @@ private[zio] trait ZIOFunctions extends Serializable {
   final def superviseStatus[R, E, A](status: SuperviseStatus)(zio: ZIO[R, E, A]): ZIO[R, E, A] =
     new ZIO.SuperviseStatus(zio, status)
 
-  /* Returns a lazily constructed effect, whose construction may itself require
+  /**
+   *  Returns a lazily constructed effect, whose construction may itself require
    * effects. The effect must not throw any exceptions. When no environment is required (i.e., when R == Any)
    * it is conceptually equivalent to `flatten(effectTotal(zio))`.
    * If you wonder if the effect throws exceptions, do not use this method, use [[Task.effectSuspend]],
    * [[IO.effectSuspend]], or [[ZIO.effectSuspend]].
    */
-  final def effectSuspendTotal[R, E, A](zio: => ZIO[R, E, A]): ZIO[R, E, A] = effectSuspendTotalWith(_ => zio)
+  final def effectSuspendTotal[R, E, A](zio: => ZIO[R, E, A]): ZIO[R, E, A] = new ZIO.EffectSuspendTotalWith(_ => zio)
 
   /**
    * Returns a lazily constructed effect, whose construction may itself require effects.
@@ -2119,11 +2120,23 @@ private[zio] trait ZIOFunctions extends Serializable {
     new ZIO.EffectSuspendTotalWith(p)
 
   @deprecated("use effectSuspendTotal", "1.0.0")
-  final def suspend[R >: LowerR, E <: UpperE, A](zio: => ZIO[R, E, A]): ZIO[R, E, A] = effectSuspendTotalWith(_ => zio)
+  final def suspend[R, E , A](zio: => ZIO[R, E, A]): ZIO[R, E, A] = effectSuspendTotalWith(_ => zio)
 
   @deprecated("use effectSuspendTotalWith", "1.0.0")
-  final def suspendWith[R >: LowerR, E <: UpperE, A](p: Platform => ZIO[R, E, A]): ZIO[R, E, A] =
+  final def suspendWith[R, E , A](p: Platform => ZIO[R, E, A]): ZIO[R, E, A] =
     new ZIO.EffectSuspendTotalWith(p)
+
+  /**
+   * Returns a lazily constructed effect, whose construction may itself require effects.
+   * When no environment is required (i.e., when R == Any) it is conceptually equivalent to `flatten(effect(io))`.
+   */
+  final def effectSuspend[R, A](rio: => RIO[R, A]): RIO[R, A] = new ZIO.EffectSuspendPartialWith(_ => rio)
+
+  /**
+   * Returns a lazily constructed effect, whose construction may itself require effects.
+   * When no environment is required (i.e., when R == Any) it is conceptually equivalent to `flatten(effect(io))`.
+   */
+  final def effectSuspendWith[R, A](p: Platform => RIO[R, A]): RIO[R, A] = new ZIO.EffectSuspendPartialWith(p)
 
   /**
    * Returns an effectful function that merely swaps the elements in a `Tuple2`.
@@ -2531,7 +2544,7 @@ object ZIO extends ZIOFunctions {
     override def tag = Tags.Provide
   }
 
-  private[zio] final class EffectSuspendPartialWith[R, A](val f: Platform => TaskR[R, A]) extends TaskR[R, A] {
+  private[zio] final class EffectSuspendPartialWith[R, A](val f: Platform => RIO[R, A]) extends RIO[R, A] {
     override def tag = Tags.EffectSuspendPartialWith
   }
 
